@@ -26,3 +26,24 @@ Lots of this should be doable with our existing engine
 
 - To implement turns, we can use something like the GameStage enum I created, really simple
     - One enum variant for each player's turn, update() checks whose turn it is and acts accordingly
+
+Collision Logics:
+
+- Player - AI collision causes only restitution
+- Player/AI - Terrain collision casues only retsitution
+- Projectile - Terrain collision either reflects projectile or damage terrain
+- Player/AI - Projectile collision damage Player/AI
+
+Game control:
+
+loop:
+- Player turn:
+    - start timer
+    - move (enable player control)
+    - show aim direction
+    - shoot
+
+- chaneg turn
+- AI turn:
+    - move
+    - shoot
