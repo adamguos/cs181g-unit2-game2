@@ -48,6 +48,7 @@ struct GameState {
     scroll: Vec2i,
     score: usize,
     game_over: bool,
+    aim: Vec2i,
 }
 
 // TODO: Change this game stage
@@ -124,12 +125,17 @@ fn main() {
     // Player sprite
     let player_sprite = assets::player_anim(&sprite_sheet, 0);
 
+    // enemy_sprite
+    let player_sprite = assets::player_anim(&sprite_sheet, 0);
     // Player entity
     let player = Entity {
-        collider: Mobile::player(180, 500),
+        collider: Mobile::player(500, 180),
         position: Vec2i(180, 500),
         sprite: player_sprite,
     };
+
+    // Enemy entity
+    let enemy = assets::enemy_entity(&sprite_sheet, 0, Vec2i(100, 100));
 
     // Do we still need this?
     let mut flags = HashMap::new();
@@ -144,7 +150,7 @@ fn main() {
     let mut state = GameState {
         tilemaps,
         terrains: vec![],
-        mobiles: vec![player],
+        mobiles: vec![player, enemy],
         walls: walls_vec(WIDTH as u16, HEIGHT as u16),
         projs: vec![],
         stage: GameStage::Player,
@@ -152,6 +158,7 @@ fn main() {
         scroll: Vec2i(0, 0),
         score: 0,
         game_over: false,
+        aim: Vec2i(10, 10),
     };
     // How many unsimulated frames have we saved up?
     let mut available_time = 0.0;
@@ -161,24 +168,19 @@ fn main() {
         // Draw the current frame
         if let Event::RedrawRequested(_) = event {
             let mut screen = Screen::wrap(pixels.get_frame(), WIDTH, HEIGHT, DEPTH, state.scroll);
-
             // Load and unload tilemaps if necessary
             update_tilemaps(&mut state);
-
             // Draw current game
             draw_game(&mut state, &mut screen, &font_sheet);
-
             // Flip buffers
             if pixels.render().is_err() {
                 *control_flow = ControlFlow::Exit;
                 return;
             }
-
             // Rendering has used up some time.
             // The renderer "produces" time...
             available_time += since.elapsed().as_secs_f64();
         }
-
         // Game over event
         if let GameStage::GameOver(death_frame) = state.stage {
             if state.frame_count - death_frame >= 150 {
@@ -186,7 +188,6 @@ fn main() {
                 //main();
             }
         }
-
         // Handle input events
         if input.update(event) {
             // Close events
@@ -194,13 +195,11 @@ fn main() {
                 *control_flow = ControlFlow::Exit;
                 return;
             }
-
             // Resize the window if needed
             if let Some(size) = input.window_resized() {
                 pixels.resize(size.width, size.height);
             }
         }
-
         // And the simulation "consumes" it
         while available_time >= DT {
             // Eat up one frame worth of time
@@ -208,11 +207,9 @@ fn main() {
             if !state.game_over {
                 update_game(&mut state, &input, &sprite_sheet, &tile_sheet);
             }
-
             // Increment the frame counter
             state.frame_count += 1;
         }
-
         // Request redraw
         window.request_redraw();
         // When did the last frame end?
@@ -271,6 +268,17 @@ fn draw_game(state: &mut GameState, screen: &mut Screen, font_sheet: &Rc<Texture
 
     for e in state.terrains.iter_mut() {
         screen.draw_sprite(&mut e.sprite, state.frame_count);
+    }
+
+    // Draw aiming direction
+    if state.stage == GameStage::Player {
+        let (a, b) = (state.mobiles[0].position.0, state.mobiles[0].position.1);
+        let aimed_position = Vec2i(a + state.aim.0, b + state.aim.1);
+        screen.line(
+            state.mobiles[0].position,
+            aimed_position,
+            Rgba(0, 128, 0, 255),
+        );
     }
 
     // Draw HP bar
@@ -356,7 +364,7 @@ fn update_game(
     match state.stage {
         // Update player position: Player control goes here
         GameStage::Player => {
-            // This block modifies player position
+            // This block modifies player position:
             if input.key_held(VirtualKeyCode::Right) {
                 state.mobiles[0].collider.vx = 3.0;
             } else if input.key_held(VirtualKeyCode::Left) {
@@ -369,12 +377,33 @@ fn update_game(
             }
             state.mobiles[0].collider.vy = 0.0;
 
+            // This block aims the projectile:
+            if input.key_held(VirtualKeyCode::A) {
+                state.aim.0 -= 1;
+            } else if input.key_held(VirtualKeyCode::D) {
+                state.aim.0 += 1;
+            }
+            if input.key_held(VirtualKeyCode::W) {
+                state.aim.1 -= 1;
+            } else if input.key_held(VirtualKeyCode::S) {
+                state.aim.1 += 1;
+            }
+
+            // mark end of stage
             if input.key_held(VirtualKeyCode::Space) {
-                // shoot
+                let new_proj = Projectile::new(&state.mobiles[0].collider);
+                state.projs.push(new_proj);
+                state.aim = Vec2i(0, 0);
                 state.stage = GameStage::AI;
             }
         }
-        _ => {}
+        GameStage::AI => {
+            todo!(); //AI moving and shooting
+            state.stage = GameStage::Player;
+        }
+        GameStage::GameOver(_) => {
+            todo!()
+        }
     }
 
     // Update enemy AI movements
