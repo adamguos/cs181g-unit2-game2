@@ -62,8 +62,8 @@ enum GameStage {
 // seconds per frame
 const DT: f64 = 1.0 / 60.0;
 
-const WIDTH: usize = 576;
-const HEIGHT: usize = 320;
+const WIDTH: usize = 640;
+const HEIGHT: usize = 480;
 const DEPTH: usize = 4;
 const TILEMAP_HT: usize = 256;
 
@@ -105,7 +105,7 @@ fn main() {
         vec![3169, 2905, 1, 356, 268, 312, 61, 144],
     );
 
-    let tile_sheet = Rc::new(Texture::with_file(Path::new("content/tilesheet.png")));
+    let tile_sheet = Rc::new(Texture::with_file(Path::new("content/mario_tileset.png")));
     let tileset = Rc::new(Tileset::new(
         vec![Tile { solid: false }; 88 * 69],
         &tile_sheet,

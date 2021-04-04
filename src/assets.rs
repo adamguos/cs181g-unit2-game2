@@ -9,6 +9,65 @@ use crate::sprite::*;
 use crate::texture::*;
 use crate::types::*;
 
+pub fn level_walls(tile_sheet: &Rc<Texture>, frame_count: usize) -> Vec<Wall> {
+    let walls: Vec<Wall> = vec![];
+
+    // Outer walls
+    let xs = (16..624).filter(|x| x % 16 == 0).collect::<Vec<usize>>();
+    for x in xs.iter() {
+        walls.push(Wall::new(get_tile_rect(6, "snow").unwrap()));
+    }
+
+    walls
+}
+
+/// Returns Rect containing the tile corresponding to ID, with terrain type of tile_terrain
+/// Possible values of id:
+///     0 = top-left corner, 1 = top-right corner, 2 = bottom-right corner, 3 = bottom-left corner
+///     4 = top edge, 5 = right edge, 6 = bottom edge, 7 = left edge
+///     8 = top-left inner corner, 9 = top-right inner corner, 10 = bottom-right inner corner, 11 = bottom-left inner corner
+///     12 = center
+/// Possible values of tile_terrain:
+///     "snow"
+/// Error values:
+///     0 = tile_terrain value not acceptable
+///     1 = id value not acceptable
+fn get_tile_rect(id: usize, tile_terrain: &str) -> Result<Rect, usize> {
+    let mut terrain_offset: Vec2i;
+
+    match tile_terrain {
+        "snow" => terrain_offset = Vec2i(0, 0),
+        _ => return Err(0),
+    };
+
+    let mut tile_coords: Vec2i;
+
+    match id {
+        0 => tile_coords = Vec2i(640, 544),
+        1 => tile_coords = Vec2i(688, 544),
+        2 => tile_coords = Vec2i(800, 544),
+        3 => tile_coords = Vec2i(768, 544),
+        4 => tile_coords = Vec2i(576, 384),
+        5 => tile_coords = Vec2i(592, 400),
+        6 => tile_coords = Vec2i(784, 544),
+        7 => tile_coords = Vec2i(560, 400),
+        8 => tile_coords = Vec2i(592, 688),
+        9 => tile_coords = Vec2i(624, 688),
+        10 => tile_coords = Vec2i(704, 520),
+        11 => tile_coords = Vec2i(720, 520),
+        12 => tile_coords = Vec2i(576, 400),
+        _ => return Err(1),
+    };
+
+    Ok(Rect {
+        x: tile_coords.0 + terrain_offset.0,
+        y: tile_coords.1 + terrain_offset.1,
+        w: 16,
+        h: 16,
+    })
+}
+
+/*
 pub fn player_anim(sprite_sheet: &Rc<Texture>, frame_count: usize) -> Sprite {
     Sprite::new(
         &sprite_sheet,
@@ -276,6 +335,7 @@ pub fn rock_entity(sprite_sheet: &Rc<Texture>, frame_count: usize, pos: Vec2i) -
         ),
     )
 }
+*/
 
 pub fn get_font_letter(c: char) -> Option<Rect> {
     if c.is_lowercase() {
