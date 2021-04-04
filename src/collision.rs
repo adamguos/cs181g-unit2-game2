@@ -1,7 +1,7 @@
 use std::usize;
 
-use crate::entity::Entity;
 use crate::types::Rect;
+use crate::{entity::Entity, types::Vec2i};
 
 // seconds per frame
 const DEPTH: usize = 4;
@@ -156,6 +156,24 @@ impl Projectile {
             },
             vx: 0.0,
             vy: -10.0,
+            hp: 4,
+        }
+    }
+
+    pub(crate) fn new_aimed(from: &Mobile, aiming: Vec2i) -> Self {
+        let x = aiming.0 as f64;
+        let y = aiming.1 as f64;
+        // Normalise to velocity = 10
+        let coef = ((x * x + y * y) / 100.0).sqrt();
+        Self {
+            rect: Rect {
+                x: from.rect.x + from.rect.w as i32 / 2,
+                y: from.rect.y - 10,
+                w: 5,
+                h: 5,
+            },
+            vx: x * coef,
+            vy: y * coef,
             hp: 4,
         }
     }

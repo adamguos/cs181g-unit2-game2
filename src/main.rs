@@ -391,7 +391,7 @@ fn update_game(
 
             // mark end of stage
             if input.key_held(VirtualKeyCode::Space) {
-                let new_proj = Projectile::new(&state.mobiles[0].collider);
+                let new_proj = Projectile::new_aimed(&state.mobiles[0].collider, state.aim);
                 state.projs.push(new_proj);
                 state.aim = Vec2i(0, 0);
                 state.stage = GameStage::AI;
