@@ -133,6 +133,7 @@ pub struct Projectile {
     vx: f64,
     vy: f64,
     hp: usize,
+    speed: f64,
 }
 impl Collider for Projectile {
     fn move_pos(&mut self, dx: i32, dy: i32) {
@@ -184,30 +185,49 @@ impl Projectile {
     */
 
     pub fn new(from: &Mobile, rotation: f64) -> Self {
+        let speed = 3.0;
+
         // Spawn projectile a distance of 10 away from Mobile, towards rotation
         let x = (from.rect.x + from.rect.w as i32 / 2) as f64 + rotation.cos() * 10.0;
         let y = (from.rect.y + from.rect.h as i32 / 2) as f64 + rotation.sin() * 10.0;
 
         // Projectile starts with velocity towards angle, with magnitude 3
-        let vx = rotation.cos() * 3.0;
-        let vy = rotation.sin() * 3.0;
+        let vx = rotation.cos() * speed;
+        let vy = rotation.sin() * speed;
 
         Self {
             rrect: RotatedRect {
                 x,
                 y,
-                w: 60,
-                h: 30,
+                w: 20,
+                h: 10,
                 rotation,
             },
             vx,
             vy,
             hp: 4,
+            speed,
         }
     }
 
     pub fn get_velocity(&self) -> (f64, f64) {
         (self.vx, self.vy)
+    }
+
+    pub fn set_rotation(&mut self, new_rot: f64) {
+        self.rrect.rotation = new_rot;
+        self.update_velocity();
+        self.update_pos();
+    }
+
+    fn update_velocity(&mut self) {
+        self.vx = self.rrect.rotation.cos() * self.speed;
+        self.vy = self.rrect.rotation.sin() * self.speed;
+    }
+
+    fn update_pos(&mut self) {
+        self.rrect.x += self.vx;
+        self.rrect.y += self.vy;
     }
 }
 
@@ -542,7 +562,49 @@ pub(crate) fn handle_contact(
                     }
                 }
                 */
-                projs[a].hp = 0;
+
+                let corners = projs[a].rrect.corners();
+
+                let x_max = corners
+                    .iter()
+                    .cloned()
+                    .max_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"));
+                let x_min = corners
+                    .iter()
+                    .cloned()
+                    .min_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"));
+                let y_max = corners
+                    .iter()
+                    .cloned()
+                    .max_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"));
+                let y_min = corners
+                    .iter()
+                    .cloned()
+                    .min_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"));
+
+                let mut corners_in = 0;
+                for (i, c) in corners.iter().enumerate() {
+                    if terrains[b].collider.rect.contains_f(c) {
+                        corners_in += 1;
+                    }
+                }
+
+                if corners_in == 1 {
+                    // Easy situation
+                    for c in corners.iter() {
+                        if terrains[b].collider.rect.contains_f(c) {
+                            if c.0 == x_max.unwrap().0 || c.0 == x_min.unwrap().0 {
+                                let old_rot = projs[a].rrect.rotation;
+                                projs[a].set_rotation(std::f64::consts::PI - old_rot);
+                            } else {
+                                let old_rot = projs[a].rrect.rotation;
+                                projs[a].set_rotation(2. * std::f64::consts::PI - old_rot);
+                            }
+                        }
+                    }
+                } else if corners_in == 2 {
+                    // TODO
+                }
             }
             //PM collisions damages the mobile and erase the projectile.
             (ColliderID::Projectile(a), ColliderID::Mobile(b)) => {

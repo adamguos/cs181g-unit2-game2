@@ -116,28 +116,18 @@ impl<'fb> Screen<'fb> {
             col,
         );
         self.line(
-            Vec2i(corners[0].0 as i32, corners[0].1 as i32),
-            Vec2i(corners[2].0 as i32, corners[2].1 as i32),
-            col,
-        );
-        self.line(
-            Vec2i(corners[0].0 as i32, corners[0].1 as i32),
-            Vec2i(corners[3].0 as i32, corners[3].1 as i32),
-            col,
-        );
-        self.line(
             Vec2i(corners[1].0 as i32, corners[1].1 as i32),
             Vec2i(corners[2].0 as i32, corners[2].1 as i32),
             col,
         );
         self.line(
-            Vec2i(corners[1].0 as i32, corners[1].1 as i32),
+            Vec2i(corners[2].0 as i32, corners[2].1 as i32),
             Vec2i(corners[3].0 as i32, corners[3].1 as i32),
             col,
         );
         self.line(
-            Vec2i(corners[2].0 as i32, corners[2].1 as i32),
             Vec2i(corners[3].0 as i32, corners[3].1 as i32),
+            Vec2i(corners[0].0 as i32, corners[0].1 as i32),
             col,
         );
     }

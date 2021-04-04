@@ -26,6 +26,26 @@ pub struct Vec2f(pub f64, pub f64);
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
 pub struct Rgba(pub u8, pub u8, pub u8, pub u8);
 
+impl Rect {
+    pub fn contains(&self, point: &Vec2i) -> bool {
+        point.0 >= self.x
+            && point.0 <= self.x + self.w as i32
+            && point.1 >= self.y
+            && point.1 <= self.y + self.h as i32
+    }
+
+    pub fn contains_f(&self, point: &Vec2f) -> bool {
+        point.0 >= self.x as f64
+            && point.0 <= self.x as f64 + self.w as f64
+            && point.1 >= self.y as f64
+            && point.1 <= self.y as f64 + self.h as f64
+    }
+
+    pub fn further_in(&self, point1: &Vec2f, point2: &Vec2f, center: &Vec2f) -> Vec2f {
+        todo!();
+    }
+}
+
 // Feel free to add impl blocks with convenience functions
 impl RotatedRect {
     pub fn corners(&self) -> Vec<Vec2f> {
