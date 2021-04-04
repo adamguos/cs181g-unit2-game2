@@ -1,7 +1,5 @@
-use std::usize;
-
-use crate::types::Rect;
-use crate::{entity::Entity, types::Vec2i};
+use crate::entity::Entity;
+use crate::types::*;
 
 // seconds per frame
 const DEPTH: usize = 4;
@@ -109,7 +107,7 @@ impl Mobile {
 
     pub fn player(x: i32, y: i32) -> Self {
         Self {
-            rect: Rect { x, y, w: 36, h: 25 },
+            rect: Rect { x, y, w: 24, h: 24 },
             vx: 0.0,
             vy: 0.0,
             hp: 100,
@@ -126,26 +124,29 @@ impl Mobile {
 
 /*
     Projectiles can cross each others and they will only collide with terrains and mobiles. Since we might need it to point clearly the speed should be floats.
+    Projectiles can be rotated off-axis, which requires special collision handling. rotation is recorded in radians CCW from East
 */
 #[derive(Clone)]
 pub struct Projectile {
-    pub(crate) rect: Rect,
+    // pub(crate) rect: Rect,
+    pub rrect: RotatedRect,
     vx: f64,
     vy: f64,
     hp: usize,
 }
 impl Collider for Projectile {
     fn move_pos(&mut self, dx: i32, dy: i32) {
-        self.rect.x += dx;
-        self.rect.y += dy;
+        self.rrect.x += dx as f64;
+        self.rrect.y += dy as f64;
     }
 
     fn set_pos(&mut self, x: i32, y: i32) {
-        self.rect.x = x;
-        self.rect.y = y;
+        self.rrect.x = x as f64;
+        self.rrect.y = y as f64;
     }
 }
 impl Projectile {
+    /*
     pub(crate) fn new(from: &Mobile) -> Self {
         Self {
             rect: Rect {
@@ -157,9 +158,12 @@ impl Projectile {
             vx: 0.0,
             vy: -10.0,
             hp: 4,
+            rotation: 0,
         }
     }
+    */
 
+    /*
     pub(crate) fn new_aimed(from: &Mobile, aiming: Vec2i) -> Self {
         let x = aiming.0 as f64;
         let y = aiming.1 as f64;
@@ -174,6 +178,30 @@ impl Projectile {
             },
             vx: x * coef,
             vy: y * coef,
+            hp: 4,
+        }
+    }
+    */
+
+    pub fn new(from: &Mobile, rotation: f64) -> Self {
+        // Spawn projectile a distance of 10 away from Mobile, towards rotation
+        let x = (from.rect.x + from.rect.w as i32 / 2) as f64 + rotation.cos() * 10.0;
+        let y = (from.rect.y + from.rect.h as i32 / 2) as f64 + rotation.sin() * 10.0;
+
+        // Projectile starts with velocity towards angle, with magnitude 3
+        let vx = rotation.cos() * 3.0;
+        let vy = rotation.sin() * 3.0;
+
+        Self {
+            rrect: RotatedRect {
+                x,
+                y,
+                w: 60,
+                h: 30,
+                rotation,
+            },
+            vx,
+            vy,
             hp: 4,
         }
     }
@@ -241,6 +269,34 @@ fn rect_displacement(r1: Rect, r2: Rect) -> Option<(i32, i32)> {
     }
 }
 
+fn directed_rect_disp(r1: Rect, r2: Rect) -> (i32, i32) {
+    // Returns mtv with direction
+    // Always assume r1 will be moved in restitution, while r2 remains stationary
+    let x_overlap_l = (r2.x - r1.x - r1.w as i32).min(0);
+    let x_overlap_r = (r2.x + r2.w as i32 - r1.x).max(0);
+    let y_overlap_u = (r2.y - r1.y - r1.h as i32).min(0);
+    let y_overlap_d = (r2.y + r2.h as i32 - r1.y).max(0);
+
+    let x_overlap_min = if x_overlap_l.abs() < x_overlap_r.abs() {
+        x_overlap_l
+    } else {
+        x_overlap_r
+    };
+    let y_overlap_min = if y_overlap_u.abs() < y_overlap_d.abs() {
+        y_overlap_u
+    } else {
+        y_overlap_d
+    };
+
+    if x_overlap_min.abs() < y_overlap_min.abs() {
+        (x_overlap_min, 0)
+    } else if y_overlap_min.abs() < x_overlap_min.abs() {
+        (0, y_overlap_min)
+    } else {
+        (x_overlap_min, y_overlap_min)
+    }
+}
+
 // Here we will be using push() on into, so it can't be a slice
 pub(crate) fn gather_contacts(
     terrains: &[Entity<Terrain>],
@@ -294,7 +350,11 @@ pub(crate) fn gather_contacts(
                 let contact = Contact {
                     a: ColliderID::Mobile(ai),
                     b: ColliderID::Terrain(bi),
-                    mtv: (0, 0),
+                    // mtv: match rect_displacement(a.rect, b.rect) {
+                    //     Some((x, y)) => (x, y),
+                    //     None => (0, 0),
+                    // },
+                    mtv: directed_rect_disp(a.rect, b.rect),
                 };
 
                 into.push(contact);
@@ -330,6 +390,7 @@ pub(crate) fn gather_contacts(
         }
     }
     // collide projs against mobiles
+    /*
     for (ai, a) in projs.iter().enumerate() {
         for (bi, b) in mobiles.iter().enumerate() {
             let b = &b.collider;
@@ -354,45 +415,93 @@ pub(crate) fn gather_contacts(
             }
         }
     }
+    */
     // collide projs against terrains
     for (ai, a) in projs.iter().enumerate() {
         for (bi, b) in terrains.iter().enumerate() {
             let b = &b.collider;
-            if !separating_axis(
-                a.rect.x,
-                a.rect.x + a.rect.w as i32,
-                b.rect.x,
-                b.rect.x + b.rect.w as i32,
-            ) && !separating_axis(
-                a.rect.y,
-                a.rect.y + a.rect.h as i32,
-                b.rect.y,
-                b.rect.y + b.rect.h as i32,
+            if check_rotated_collision(
+                &a.rrect,
+                &RotatedRect {
+                    x: b.rect.x as f64 + b.rect.w as f64 / 2.0,
+                    y: b.rect.y as f64 + b.rect.h as f64 / 2.0,
+                    w: b.rect.w,
+                    h: b.rect.h,
+                    rotation: 0.0,
+                },
             ) {
-                let x: i32 = if b.rect.y < a.rect.y
-                    && (a.rect.y + a.rect.h as i32) < (b.rect.y + b.rect.h as i32)
-                {
-                    1
-                } else {
-                    0
-                };
-                let y: i32 = if b.rect.x < a.rect.x
-                    && (a.rect.x + a.rect.w as i32) < (b.rect.x + b.rect.w as i32)
-                {
-                    1
-                } else {
-                    0
-                };
                 let contact = Contact {
                     a: ColliderID::Projectile(ai),
                     b: ColliderID::Terrain(bi),
-                    mtv: (x, y),
+                    mtv: (0, 0),
                 };
 
                 into.push(contact);
             }
         }
     }
+}
+
+fn check_rotated_collision(rrect_a: &RotatedRect, rrect_b: &RotatedRect) -> bool {
+    let corners_a = rrect_a.corners();
+    let corners_b = rrect_b.corners();
+
+    let mut axes: Vec<Vec2f> = vec![];
+
+    // Note: y axis is flipped! Need to subtract the opposite way
+    axes.push(Vec2f(
+        corners_a[0].0 - corners_a[1].0,
+        corners_a[1].1 - corners_a[0].1,
+    ));
+    axes.push(Vec2f(
+        corners_a[1].0 - corners_a[2].0,
+        corners_a[2].1 - corners_a[1].1,
+    ));
+    axes.push(Vec2f(
+        corners_b[0].0 - corners_b[1].0,
+        corners_b[1].1 - corners_b[0].1,
+    ));
+    axes.push(Vec2f(
+        corners_b[1].0 - corners_b[2].0,
+        corners_b[2].1 - corners_b[1].1,
+    ));
+
+    for axis in axes.iter() {
+        let mut projections_a: Vec<Vec2f> = vec![];
+        let mut projections_b: Vec<Vec2f> = vec![];
+        for i in 0..4 {
+            projections_a.push(axis.scalar_mult(corners_a[i].dot(axis) / axis.norm()));
+            projections_b.push(axis.scalar_mult(corners_b[i].dot(axis) / axis.norm()));
+        }
+
+        let dists_a: Vec<f64> = projections_a.into_iter().map(|x| x.dot(axis)).collect();
+        let dists_b: Vec<f64> = projections_b.into_iter().map(|x| x.dot(axis)).collect();
+
+        // Weirdness necessary because f64 doesn't implement Ord
+        let a_max = dists_a
+            .iter()
+            .cloned()
+            .max_by(|a, b| a.partial_cmp(b).expect("Tried to compare a NaN"));
+        let a_min = dists_a
+            .iter()
+            .cloned()
+            .min_by(|a, b| a.partial_cmp(b).expect("Tried to compare a NaN"));
+        let b_max = dists_b
+            .iter()
+            .cloned()
+            .max_by(|a, b| a.partial_cmp(b).expect("Tried to compare a NaN"));
+        let b_min = dists_b
+            .iter()
+            .cloned()
+            .min_by(|a, b| a.partial_cmp(b).expect("Tried to compare a NaN"));
+
+        // If no overlap, then we know there is no collision, so exit early
+        if a_min >= b_max || b_min >= a_max {
+            return false;
+        }
+    }
+
+    true
 }
 
 /*
@@ -413,6 +522,7 @@ pub(crate) fn handle_contact(
         match (contact.a, contact.b) {
             // PT collision
             (ColliderID::Projectile(a), ColliderID::Terrain(b)) => {
+                /*
                 // If destructible terrain, damage and erase
                 if terrains[b].collider.destructible {
                     if terrains[b].collider.hp >= projs[a].hp {
@@ -431,6 +541,8 @@ pub(crate) fn handle_contact(
                         projs[a].vy *= 1.0;
                     }
                 }
+                */
+                projs[a].hp = 0;
             }
             //PM collisions damages the mobile and erase the projectile.
             (ColliderID::Projectile(a), ColliderID::Mobile(b)) => {
@@ -462,11 +574,30 @@ fn restitute(
     contacts.sort_unstable_by_key(|c| -(c.mtv.0 * c.mtv.0 + c.mtv.1 * c.mtv.1));
 
     for contact in contacts.iter() {
-        if let (ColliderID::Mobile(ai), ColliderID::Wall(_)) = (contact.a, contact.b) {
+        if let (ColliderID::Mobile(ai), ColliderID::Terrain(_)) = (contact.a, contact.b) {
+            /*
+            let vx_dir = if dynamics[ai].collider.vx == 0.0 {
+                0
+            } else {
+                dynamics[ai].collider.vx.signum() as i32
+            };
+            let vy_dir = if dynamics[ai].collider.vy == 0.0 {
+                0
+            } else {
+                dynamics[ai].collider.vy.signum() as i32
+            };
+
+            println!("restitute {:?}, {}, {}", contact.mtv, vx_dir, vy_dir);
+
             dynamics[ai].move_pos(
-                -contact.mtv.0 * dynamics[ai].collider.vx.signum() as i32,
-                -contact.mtv.1 * (dynamics[ai].collider.vy + 1.0).signum() as i32,
+                -contact.mtv.0 * vx_dir as i32 * 4,
+                -contact.mtv.1 * vy_dir as i32 * 4,
             );
+            println!("{:?}", dynamics[ai].position);
+            */
+
+            println!("restitute {:?}", contact.mtv);
+            dynamics[ai].move_pos(contact.mtv.0, contact.mtv.1);
 
             if contact.mtv.0 != 0 {
                 dynamics[ai].collider.vx = 0.0;

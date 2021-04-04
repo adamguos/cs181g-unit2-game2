@@ -1,6 +1,6 @@
 // We can pull in definitions from elsewhere in the crate!
 use crate::texture::Texture;
-use crate::types::{Rect, Rgba, Vec2i};
+use crate::types::{Rect, Rgba, RotatedRect, Vec2i};
 
 pub struct Screen<'fb> {
     framebuffer: &'fb mut [u8],
@@ -104,6 +104,42 @@ impl<'fb> Screen<'fb> {
                 p.copy_from_slice(&c);
             }
         }
+    }
+
+    // Draw RotatedRect
+    pub fn rotated_rect(&mut self, r: RotatedRect, col: Rgba) {
+        let corners = r.corners();
+
+        self.line(
+            Vec2i(corners[0].0 as i32, corners[0].1 as i32),
+            Vec2i(corners[1].0 as i32, corners[1].1 as i32),
+            col,
+        );
+        self.line(
+            Vec2i(corners[0].0 as i32, corners[0].1 as i32),
+            Vec2i(corners[2].0 as i32, corners[2].1 as i32),
+            col,
+        );
+        self.line(
+            Vec2i(corners[0].0 as i32, corners[0].1 as i32),
+            Vec2i(corners[3].0 as i32, corners[3].1 as i32),
+            col,
+        );
+        self.line(
+            Vec2i(corners[1].0 as i32, corners[1].1 as i32),
+            Vec2i(corners[2].0 as i32, corners[2].1 as i32),
+            col,
+        );
+        self.line(
+            Vec2i(corners[1].0 as i32, corners[1].1 as i32),
+            Vec2i(corners[3].0 as i32, corners[3].1 as i32),
+            col,
+        );
+        self.line(
+            Vec2i(corners[2].0 as i32, corners[2].1 as i32),
+            Vec2i(corners[3].0 as i32, corners[3].1 as i32),
+            col,
+        );
     }
 
     // Ditto line

@@ -44,4 +44,8 @@ impl<T: Collider> Entity<T> {
         }
         self.collider.set_pos(self.position.0, self.position.1);
     }
+
+    pub fn anim_trans(&mut self, input: &str, frame: usize) {
+        self.sprite.animation_sm.input(input, frame);
+    }
 }

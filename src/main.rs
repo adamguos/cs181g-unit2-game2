@@ -39,15 +39,13 @@ use assets::*;
 // Now this main module is just for the run-loop and rules processing.
 struct GameState {
     terrains: Vec<Entity<Terrain>>,
-    tilemaps: Vec<Tilemap>,
     mobiles: Vec<Entity<Mobile>>,
-    walls: Vec<Wall>,
     projs: Vec<Projectile>,
+    walls: Vec<Wall>,
     stage: GameStage,
     frame_count: usize,
     scroll: Vec2i,
     score: usize,
-    game_over: bool,
     aim: Vec2i,
 }
 
@@ -92,84 +90,44 @@ fn main() {
         Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture).unwrap()
     };
 
-    // TODO: change this up.
-    let sprite_sheet = Rc::new(Texture::with_file(Path::new(
-        "content/spaceshooter/Spritesheet/sheet.png",
-    )));
+    let sprite_sheet = Rc::new(Texture::with_file(Path::new("content/jackal_sprites.png")));
     let font_sheet = Rc::new(Texture::with_file(Path::new("content/monospace_font.png")));
-
-    // Tiles
-    let mut terrain_tile_ids = HashMap::new();
-    terrain_tile_ids.insert(
-        String::from("ground"),
-        vec![3169, 2905, 1, 356, 268, 312, 61, 144],
-    );
-
     let tile_sheet = Rc::new(Texture::with_file(Path::new("content/mario_tileset.png")));
-    let tileset = Rc::new(Tileset::new(
-        vec![Tile { solid: false }; 88 * 69],
-        &tile_sheet,
-        terrain_tile_ids,
-    ));
-
-    let mut tilemaps: Vec<Tilemap> = vec![];
-    for i in 0..(HEIGHT / TILEMAP_HT + 1) {
-        tilemaps.push(Tilemap::new(
-            Vec2i(0, HEIGHT as i32 - (i * TILEMAP_HT) as i32),
-            (WIDTH / TILE_SZ, TILEMAP_HT / TILE_SZ),
-            &tileset,
-            vec![3169; (WIDTH / TILE_SZ) * (TILEMAP_HT / TILE_SZ)],
-        ));
-    }
 
     // Player sprite
-    let player_sprite = assets::player_anim(&sprite_sheet, 0);
+    // let player_sprite = assets::player_anim(&sprite_sheet, 0);
 
-    // enemy_sprite
-    let player_sprite = assets::player_anim(&sprite_sheet, 0);
     // Player entity
-    let player = Entity {
-        collider: Mobile::player(500, 180),
-        position: Vec2i(180, 500),
-        sprite: player_sprite,
-    };
+    // let player = Entity {
+    //     collider: Mobile::player(500, 180),
+    //     position: Vec2i(180, 500),
+    //     sprite: player_sprite,
+    // };
 
     // Enemy entity
-    let enemy = assets::enemy_entity(&sprite_sheet, 0, Vec2i(100, 100));
-
-    // Do we still need this?
-    let mut flags = HashMap::new();
-    flags.insert("spawning_enemies".to_string(), true);
-    flags.insert("spawning_walls".to_string(), false);
-
-    let mut counters = HashMap::new();
-    counters.insert("enemy_cycles".to_string(), 0);
-    counters.insert("wall_waves".to_string(), 0);
+    // let enemy = assets::enemy_entity(&sprite_sheet, 0, Vec2i(100, 100));
 
     // Initial game state
     let mut state = GameState {
-        tilemaps,
-        terrains: vec![],
-        mobiles: vec![player, enemy],
-        walls: walls_vec(WIDTH as u16, HEIGHT as u16),
+        terrains: level_walls(&tile_sheet, 0, Vec2i(WIDTH as i32, HEIGHT as i32)),
+        mobiles: vec![player_entity(&sprite_sheet, 0)],
         projs: vec![],
+        walls: vec![],
         stage: GameStage::Player,
         frame_count: 0,
         scroll: Vec2i(0, 0),
         score: 0,
-        game_over: false,
         aim: Vec2i(10, 10),
     };
+
     // How many unsimulated frames have we saved up?
     let mut available_time = 0.0;
     // Track end of the last frame
-    let mut since = Instant::now(); //TODO: This seems to be similar?
+    let mut since = Instant::now();
     event_loop.run(move |event, _, control_flow| {
         // Draw the current frame
         if let Event::RedrawRequested(_) = event {
             let mut screen = Screen::wrap(pixels.get_frame(), WIDTH, HEIGHT, DEPTH, state.scroll);
-            // Load and unload tilemaps if necessary
-            update_tilemaps(&mut state);
             // Draw current game
             draw_game(&mut state, &mut screen, &font_sheet);
             // Flip buffers
@@ -204,9 +162,7 @@ fn main() {
         while available_time >= DT {
             // Eat up one frame worth of time
             available_time -= DT;
-            if !state.game_over {
-                update_game(&mut state, &input, &sprite_sheet, &tile_sheet);
-            }
+            update_game(&mut state, &input, &sprite_sheet, &tile_sheet);
             // Increment the frame counter
             state.frame_count += 1;
         }
@@ -217,49 +173,12 @@ fn main() {
     });
 }
 
-fn update_tilemaps(state: &mut GameState) {
-    // Unload tilemaps that are off screen, and check if new tilemap needs to be loaded
-    let mut visible = vec![];
-    let mut no_need_load = false;
-    for map in state.tilemaps.iter() {
-        visible.push(map.is_visible(state.scroll, Vec2i(WIDTH as i32, HEIGHT as i32)));
-        no_need_load = no_need_load || ((map.position.1 + TILE_SZ as i32) < state.scroll.1);
-    }
-    let mut i = 0;
-    state.tilemaps.retain(|_| (visible[i], i += 1).0);
-
-    // Load new tilemap if need
-    if !no_need_load {
-        let mut rng = rand::thread_rng();
-        let tile_idx = rng.gen_range(0..state.tilemaps[0].tileset.tile_ids["ground"].len());
-        let tile_id = state.tilemaps[0].tileset.tile_ids["ground"][tile_idx];
-
-        let new_map = Tilemap::new(
-            Vec2i(
-                state.scroll.0,
-                state.scroll.1 - TILEMAP_HT as i32 + TILE_SZ as i32,
-            ),
-            (WIDTH / TILE_SZ, TILEMAP_HT / TILE_SZ),
-            &state.tilemaps[0].tileset,
-            vec![tile_id; WIDTH * TILEMAP_HT / TILE_SZ / TILE_SZ],
-        );
-        state.tilemaps.push(new_map);
-    }
-}
-
 fn draw_game(state: &mut GameState, screen: &mut Screen, font_sheet: &Rc<Texture>) {
     // Call screen's drawing methods to render the game state
     screen.clear(Rgba(255, 197, 255, 255));
 
-    // Remove Terrain objects that have left screen
-    cleanup_terrain(state, screen);
-
-    for map in state.tilemaps.iter() {
-        map.draw(screen);
-    }
-
     for proj in state.projs.iter() {
-        screen.rect(proj.rect, Rgba(0, 128, 0, 255));
+        screen.rotated_rect(proj.rrect, Rgba(0, 0, 255, 255));
     }
 
     for e in state.mobiles.iter_mut() {
@@ -271,62 +190,62 @@ fn draw_game(state: &mut GameState, screen: &mut Screen, font_sheet: &Rc<Texture
     }
 
     // Draw aiming direction
-    if state.stage == GameStage::Player {
-        let (a, b) = (state.mobiles[0].position.0, state.mobiles[0].position.1);
-        let aimed_position = Vec2i(a + state.aim.0, b + state.aim.1);
-        screen.line(
-            state.mobiles[0].position,
-            aimed_position,
-            Rgba(0, 128, 0, 255),
-        );
-    }
+    // if state.stage == GameStage::Player {
+    //     let (a, b) = (state.mobiles[0].position.0, state.mobiles[0].position.1);
+    //     let aimed_position = Vec2i(a + state.aim.0, b + state.aim.1);
+    //     screen.line(
+    //         state.mobiles[0].position,
+    //         aimed_position,
+    //         Rgba(0, 128, 0, 255),
+    //     );
+    // }
 
     // Draw HP bar
-    draw_string("HP", screen, font_sheet, Vec2i(20, 520), state.scroll);
-    let hp = state.mobiles[0].collider.hp;
-    screen.rect(
-        Rect {
-            x: 70,
-            y: state.scroll.1 + 520,
-            w: hp as u16 * 2,
-            h: 18,
-        },
-        Rgba(0, 128, 0, 255),
-    );
-    screen.rect(
-        Rect {
-            x: 70 + (hp as i32 * 2),
-            y: state.scroll.1 + 520,
-            w: (100 - hp as u16) * 2,
-            h: 18,
-        },
-        Rgba(128, 0, 0, 255),
-    );
-    screen.line(
-        Vec2i(70, state.scroll.1 + 520),
-        Vec2i(270, state.scroll.1 + 520),
-        Rgba(0, 0, 0, 255),
-    );
-    screen.line(
-        Vec2i(270, state.scroll.1 + 520),
-        Vec2i(270, state.scroll.1 + 538),
-        Rgba(0, 0, 0, 255),
-    );
-    screen.line(
-        Vec2i(70, state.scroll.1 + 520),
-        Vec2i(70, state.scroll.1 + 538),
-        Rgba(0, 0, 0, 255),
-    );
-    screen.line(
-        Vec2i(70, state.scroll.1 + 538),
-        Vec2i(270, state.scroll.1 + 538),
-        Rgba(0, 0, 0, 255),
-    );
-    screen.line(
-        Vec2i(70 + (hp as i32 * 2), state.scroll.1 + 520),
-        Vec2i(70 + (hp as i32 * 2), state.scroll.1 + 538),
-        Rgba(0, 0, 0, 255),
-    );
+    // draw_string("HP", screen, font_sheet, Vec2i(20, 520), state.scroll);
+    // let hp = state.mobiles[0].collider.hp;
+    // screen.rect(
+    //     Rect {
+    //         x: 70,
+    //         y: state.scroll.1 + 520,
+    //         w: hp as u16 * 2,
+    //         h: 18,
+    //     },
+    //     Rgba(0, 128, 0, 255),
+    // );
+    // screen.rect(
+    //     Rect {
+    //         x: 70 + (hp as i32 * 2),
+    //         y: state.scroll.1 + 520,
+    //         w: (100 - hp as u16) * 2,
+    //         h: 18,
+    //     },
+    //     Rgba(128, 0, 0, 255),
+    // );
+    // screen.line(
+    //     Vec2i(70, state.scroll.1 + 520),
+    //     Vec2i(270, state.scroll.1 + 520),
+    //     Rgba(0, 0, 0, 255),
+    // );
+    // screen.line(
+    //     Vec2i(270, state.scroll.1 + 520),
+    //     Vec2i(270, state.scroll.1 + 538),
+    //     Rgba(0, 0, 0, 255),
+    // );
+    // screen.line(
+    //     Vec2i(70, state.scroll.1 + 520),
+    //     Vec2i(70, state.scroll.1 + 538),
+    //     Rgba(0, 0, 0, 255),
+    // );
+    // screen.line(
+    //     Vec2i(70, state.scroll.1 + 538),
+    //     Vec2i(270, state.scroll.1 + 538),
+    //     Rgba(0, 0, 0, 255),
+    // );
+    // screen.line(
+    //     Vec2i(70 + (hp as i32 * 2), state.scroll.1 + 520),
+    //     Vec2i(70 + (hp as i32 * 2), state.scroll.1 + 538),
+    //     Rgba(0, 0, 0, 255),
+    // );
 
     // Draw score
     let mut score_msg = "Score ".to_string();
@@ -358,24 +277,55 @@ fn update_game(
     sprite_sheet: &Rc<Texture>,
     tile_sheet: &Rc<Texture>,
 ) {
-    state.scroll.1 -= 1;
-
+    if state.frame_count % 60 == 0 {
+        let angle = (state.frame_count % 720) as f64 * 2.0 * std::f64::consts::PI / 720.0;
+        state
+            .projs
+            .push(Projectile::new(&state.mobiles[0].collider, angle));
+    }
     // There will be no spawing
     match state.stage {
         // Update player position: Player control goes here
         GameStage::Player => {
             // This block modifies player position:
+            // Nested if statements are used to ensure animation transitions are correct
             if input.key_held(VirtualKeyCode::Right) {
-                state.mobiles[0].collider.vx = 3.0;
+                if state.mobiles[0].collider.vx != 1.0 {
+                    state.mobiles[0].anim_trans("stop", state.frame_count);
+                    state.mobiles[0].anim_trans("right", state.frame_count);
+                    state.mobiles[0].anim_trans("move", state.frame_count);
+                    state.mobiles[0].collider.vx = 1.0;
+                    state.mobiles[0].collider.vy = 0.0;
+                }
             } else if input.key_held(VirtualKeyCode::Left) {
-                state.mobiles[0].collider.vx = -3.0;
-            }
-            if input.key_held(VirtualKeyCode::Up) {
-                state.mobiles[0].collider.vy = -3.0;
+                if state.mobiles[0].collider.vx != -1.0 {
+                    state.mobiles[0].anim_trans("stop", state.frame_count);
+                    state.mobiles[0].anim_trans("left", state.frame_count);
+                    state.mobiles[0].anim_trans("move", state.frame_count);
+                    state.mobiles[0].collider.vx = -1.0;
+                    state.mobiles[0].collider.vy = 0.0;
+                }
+            } else if input.key_held(VirtualKeyCode::Up) {
+                if state.mobiles[0].collider.vy != -1.0 {
+                    state.mobiles[0].anim_trans("stop", state.frame_count);
+                    state.mobiles[0].anim_trans("up", state.frame_count);
+                    state.mobiles[0].anim_trans("move", state.frame_count);
+                }
+                state.mobiles[0].collider.vx = 0.0;
+                state.mobiles[0].collider.vy = -1.0;
             } else if input.key_held(VirtualKeyCode::Down) {
-                state.mobiles[0].collider.vy = 3.0;
+                if state.mobiles[0].collider.vy != 1.0 {
+                    state.mobiles[0].anim_trans("stop", state.frame_count);
+                    state.mobiles[0].anim_trans("down", state.frame_count);
+                    state.mobiles[0].anim_trans("move", state.frame_count);
+                }
+                state.mobiles[0].collider.vx = 0.0;
+                state.mobiles[0].collider.vy = 1.0;
+            } else {
+                state.mobiles[0].anim_trans("stop", state.frame_count);
+                state.mobiles[0].collider.vx = 0.0;
+                state.mobiles[0].collider.vy = 0.0;
             }
-            state.mobiles[0].collider.vy = 0.0;
 
             // This block aims the projectile:
             if input.key_held(VirtualKeyCode::A) {
@@ -390,12 +340,14 @@ fn update_game(
             }
 
             // mark end of stage
+            /*
             if input.key_held(VirtualKeyCode::Space) {
-                let new_proj = Projectile::new_aimed(&state.mobiles[0].collider, state.aim);
+                let new_proj = Projectile::new(&state.mobiles[0].collider, state.aim);
                 state.projs.push(new_proj);
                 state.aim = Vec2i(0, 0);
                 state.stage = GameStage::AI;
             }
+            */
         }
         GameStage::AI => {
             todo!(); //AI moving and shooting
@@ -408,23 +360,6 @@ fn update_game(
 
     // Update enemy AI movements
     update_enemies(state);
-
-    // Update position of mobiles
-    for m in state.mobiles.iter_mut() {
-        m.move_pos(m.collider.vx as i32, m.collider.vy as i32);
-    }
-
-    // Update proj position
-    for proj in state.projs.iter_mut() {
-        proj.move_pos(proj.get_velocity().0 as i32, proj.get_velocity().1 as i32);
-    }
-
-    // Update wall position (scroll with camera): useless
-    /*
-    for wall in state.walls.iter_mut() {
-        wall.move_pos(0, -1);
-    }
-    */
 
     // Detect collisions: Generate contacts
     let mut contacts: Vec<Contact> = vec![];
@@ -447,6 +382,16 @@ fn update_game(
         state.stage = GameStage::GameOver(state.frame_count);
     }
 
+    // Update position of mobiles
+    for m in state.mobiles.iter_mut() {
+        m.move_pos(m.collider.vx as i32, m.collider.vy as i32);
+    }
+
+    // Update proj position
+    for proj in state.projs.iter_mut() {
+        proj.move_pos(proj.get_velocity().0 as i32, proj.get_velocity().1 as i32);
+    }
+
     if let GameStage::Player | GameStage::AI = state.stage {
         // Set GameOver stage if player is not alive
         if !player_is_alive {
@@ -460,84 +405,7 @@ fn update_game(
         } else {
             state.score += scores_gained;
         }
-
-        // Fire projectile
-        if state.frame_count % PROJ_DT == 0 {
-            state
-                .projs
-                .push(Projectile::new(&state.mobiles[0].collider));
-        }
     }
-}
-
-/**
- * Randomly picks hexadecimal string of length 4 and uses it to generate terrain objects.
- *
- * terrain_type: 0 = random rocks, 1 = wall with some rocks
- */
-fn generate_terrain(state: &mut GameState, tile_sheet: &Rc<Texture>, terrain_type: usize) {
-    let mut rng = rand::thread_rng();
-
-    if terrain_type == 0 {
-        for i in 0..(WIDTH / ROCK_SZ) {
-            for j in 0..6 {
-                if rng.gen_range(0..6) == 0 {
-                    let pos = Vec2i(
-                        (i * ROCK_SZ) as i32,
-                        state.scroll.1 - (ROCK_SZ * (j + 1)) as i32,
-                    );
-                    state
-                        .terrains
-                        .push(rock_entity(tile_sheet, state.frame_count, pos));
-                }
-            }
-        }
-    } else if terrain_type == 1 {
-        let seed = rng.gen_range(0..256);
-        for i in 0..(WIDTH / WALL_SZ) {
-            // ~1/3 chance of adding rocks instead of walls for 3 slots
-            if ((seed + i) / 3) % 3 == 0 {
-                // let pos1 = Vec2i((i * WALL_SZ) as i32, state.scroll.1 - WALL_SZ as i32);
-                // let pos2 = Vec2i(
-                //     (i * WALL_SZ + ROCK_SZ) as i32,
-                //     state.scroll.1 - WALL_SZ as i32,
-                // );
-                let pos3 = Vec2i(
-                    (i * WALL_SZ) as i32,
-                    state.scroll.1 - WALL_SZ as i32 + ROCK_SZ as i32,
-                );
-                let pos4 = Vec2i(
-                    (i * WALL_SZ + ROCK_SZ) as i32,
-                    state.scroll.1 - WALL_SZ as i32 + ROCK_SZ as i32,
-                );
-
-                // state
-                //     .terrains
-                //     .push(rock_entity(tile_sheet, state.frame_count, pos1));
-                // state
-                //     .terrains
-                //     .push(rock_entity(tile_sheet, state.frame_count, pos2));
-                state
-                    .terrains
-                    .push(rock_entity(tile_sheet, state.frame_count, pos3));
-                state
-                    .terrains
-                    .push(rock_entity(tile_sheet, state.frame_count, pos4));
-            } else {
-                let pos = Vec2i((i * WALL_SZ) as i32, state.scroll.1 - WALL_SZ as i32);
-                state
-                    .terrains
-                    .push(boulder_entity(tile_sheet, state.frame_count, pos));
-            }
-        }
-    }
-}
-
-fn cleanup_terrain(state: &mut GameState, screen: &Screen) {
-    let frame_count = state.frame_count;
-    state.terrains.retain(|t| {
-        screen.is_visible(t.collider.rect) || frame_count - t.collider.created_at < 300
-    });
 }
 
 fn update_enemies(state: &mut GameState) {

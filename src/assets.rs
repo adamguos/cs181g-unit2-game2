@@ -9,13 +9,84 @@ use crate::sprite::*;
 use crate::texture::*;
 use crate::types::*;
 
-pub fn level_walls(tile_sheet: &Rc<Texture>, frame_count: usize) -> Vec<Wall> {
-    let walls: Vec<Wall> = vec![];
+const TILE_SZ: usize = 16;
 
-    // Outer walls
-    let xs = (16..624).filter(|x| x % 16 == 0).collect::<Vec<usize>>();
-    for x in xs.iter() {
-        walls.push(Wall::new(get_tile_rect(6, "snow").unwrap()));
+pub fn level_walls(
+    tile_sheet: &Rc<Texture>,
+    frame_count: usize,
+    screen_dims: Vec2i,
+) -> Vec<Entity<Terrain>> {
+    let mut walls: Vec<Entity<Terrain>> = vec![];
+
+    #[rustfmt::skip]
+    let tile_ids = vec![
+        0,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  1,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        7,  -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 5,
+        3,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  6,  2,
+    ];
+    assert!((screen_dims.0 * screen_dims.1) as usize == tile_ids.len() * TILE_SZ * TILE_SZ);
+
+    for (i, tid) in tile_ids.iter().enumerate() {
+        let tile_rect = match get_tile_rect(*tid, "snow").unwrap() {
+            Some(rect) => rect,
+            None => continue,
+        };
+
+        let tile_pos = Vec2i(
+            (i * TILE_SZ) as i32 % screen_dims.0,
+            (i * TILE_SZ) as i32 / screen_dims.0 * TILE_SZ as i32,
+        );
+
+        walls.push(Entity::new(
+            Sprite::new(
+                tile_sheet,
+                AnimationSM::new(
+                    vec![Animation::new(vec![tile_rect], vec![60], frame_count, true)],
+                    vec![],
+                    0,
+                ),
+                tile_pos,
+            ),
+            tile_pos,
+            Terrain::new(
+                Rect {
+                    x: tile_pos.0,
+                    y: tile_pos.1,
+                    w: TILE_SZ as u16,
+                    h: TILE_SZ as u16,
+                },
+                frame_count,
+                false,
+                1,
+            ),
+        ));
     }
 
     walls
@@ -27,12 +98,13 @@ pub fn level_walls(tile_sheet: &Rc<Texture>, frame_count: usize) -> Vec<Wall> {
 ///     4 = top edge, 5 = right edge, 6 = bottom edge, 7 = left edge
 ///     8 = top-left inner corner, 9 = top-right inner corner, 10 = bottom-right inner corner, 11 = bottom-left inner corner
 ///     12 = center
+///     -1 = return Ok(None)
 /// Possible values of tile_terrain:
 ///     "snow"
 /// Error values:
 ///     0 = tile_terrain value not acceptable
 ///     1 = id value not acceptable
-fn get_tile_rect(id: usize, tile_terrain: &str) -> Result<Rect, usize> {
+fn get_tile_rect(id: i32, tile_terrain: &str) -> Result<Option<Rect>, usize> {
     let mut terrain_offset: Vec2i;
 
     match tile_terrain {
@@ -56,15 +128,92 @@ fn get_tile_rect(id: usize, tile_terrain: &str) -> Result<Rect, usize> {
         10 => tile_coords = Vec2i(704, 520),
         11 => tile_coords = Vec2i(720, 520),
         12 => tile_coords = Vec2i(576, 400),
+        -1 => return Ok(None),
         _ => return Err(1),
     };
 
-    Ok(Rect {
+    Ok(Some(Rect {
         x: tile_coords.0 + terrain_offset.0,
         y: tile_coords.1 + terrain_offset.1,
         w: 16,
         h: 16,
-    })
+    }))
+}
+
+pub fn player_entity(sprite_sheet: &Rc<Texture>, frame_count: usize) -> Entity<Mobile> {
+    let pos = Vec2i(100, 100);
+
+    let mut anims: Vec<Animation> = (0..4)
+        .map(|x| {
+            Animation::new(
+                get_sprite_rects(x, "green").unwrap(),
+                vec![60],
+                frame_count,
+                true,
+            )
+        })
+        .collect();
+    let anims2: Vec<Animation> = (4..8)
+        .map(|x| {
+            Animation::new(
+                get_sprite_rects(x, "green").unwrap(),
+                vec![2, 2],
+                frame_count,
+                true,
+            )
+        })
+        .collect();
+    anims.extend(anims2);
+
+    #[rustfmt::skip]
+    let trans = vec![
+        (0, 1, "right".to_string()), (0, 2, "down".to_string()), (0, 3, "left".to_string()),
+        (1, 0, "up".to_string()), (1, 2, "down".to_string()), (0, 3, "left".to_string()),
+        (2, 0, "up".to_string()), (2, 1, "right".to_string()), (2, 3, "left".to_string()),
+        (3, 0, "up".to_string()), (3, 1, "right".to_string()), (3, 2, "down".to_string()),
+        (0, 4, "move".to_string()), (1, 5, "move".to_string()), (2, 6, "move".to_string()), (3, 7, "move".to_string()), 
+        (4, 0, "stop".to_string()), (5, 1, "stop".to_string()), (6, 2, "stop".to_string()), (7, 3, "stop".to_string()), 
+    ];
+
+    let anim_sm = AnimationSM::new(anims, trans, 0);
+
+    let sprite = Sprite::new(&sprite_sheet, anim_sm, pos);
+
+    Entity::new(sprite, pos, Mobile::player(pos.0, pos.1))
+}
+
+/// 0 = facing up, 1 = facing right, 2 = facing down, 3 = facing left
+/// 4 = moving up, 5 = moving right, 6 = moving down, 7 = moving left
+/// colors = "green", "orange"
+/// errors: 0 = invalid color, 1 = invalid id
+fn get_sprite_rects(id: usize, color: &str) -> Result<Vec<Rect>, usize> {
+    let offset = match color {
+        "green" => Vec2i(0, 0),
+        "orange" => Vec2i(0, 66),
+        _ => return Err(0),
+    };
+
+    let pos = match id {
+        0 => vec![Vec2i(47, 29)],
+        1 => vec![Vec2i(113, 29)],
+        2 => vec![Vec2i(80, 63)],
+        3 => vec![Vec2i(13, 62)],
+        4 => vec![Vec2i(178, 29), Vec2i(179, 29)],
+        5 => vec![Vec2i(245, 29), Vec2i(245, 30)],
+        6 => vec![Vec2i(212, 63), Vec2i(213, 63)],
+        7 => vec![Vec2i(146, 62), Vec2i(146, 63)],
+        _ => return Err(1),
+    };
+
+    Ok(pos
+        .into_iter()
+        .map(|p| Rect {
+            x: p.0 + offset.0,
+            y: p.1 + offset.1,
+            w: 24,
+            h: 24,
+        })
+        .collect())
 }
 
 /*
