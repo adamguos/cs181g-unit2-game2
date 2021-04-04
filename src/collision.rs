@@ -225,7 +225,7 @@ impl Projectile {
         self.vy = self.rrect.rotation.sin() * self.speed;
     }
 
-    fn update_pos(&mut self) {
+    pub fn update_pos(&mut self) {
         self.rrect.x += self.vx;
         self.rrect.y += self.vy;
     }
@@ -589,21 +589,17 @@ pub(crate) fn handle_contact(
                     }
                 }
 
-                if corners_in == 1 {
-                    // Easy situation
-                    for c in corners.iter() {
-                        if terrains[b].collider.rect.contains_f(c) {
-                            if c.0 == x_max.unwrap().0 || c.0 == x_min.unwrap().0 {
-                                let old_rot = projs[a].rrect.rotation;
-                                projs[a].set_rotation(std::f64::consts::PI - old_rot);
-                            } else {
-                                let old_rot = projs[a].rrect.rotation;
-                                projs[a].set_rotation(2. * std::f64::consts::PI - old_rot);
-                            }
+                // TODO: this isn't correct if more than 1 corner overlaps the Terrain
+                for c in corners.iter() {
+                    if terrains[b].collider.rect.contains_f(c) {
+                        if c.0 == x_max.unwrap().0 || c.0 == x_min.unwrap().0 {
+                            let old_rot = projs[a].rrect.rotation;
+                            projs[a].set_rotation(std::f64::consts::PI - old_rot);
+                        } else {
+                            let old_rot = projs[a].rrect.rotation;
+                            projs[a].set_rotation(2. * std::f64::consts::PI - old_rot);
                         }
                     }
-                } else if corners_in == 2 {
-                    // TODO
                 }
             }
             //PM collisions damages the mobile and erase the projectile.

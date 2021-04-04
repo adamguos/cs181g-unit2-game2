@@ -46,7 +46,8 @@ struct GameState {
     frame_count: usize,
     scroll: Vec2i,
     score: usize,
-    aim: Vec2i,
+    // aim: Vec2i,
+    aim: f64,
 }
 
 // TODO: Change this game stage
@@ -117,7 +118,8 @@ fn main() {
         frame_count: 0,
         scroll: Vec2i(0, 0),
         score: 0,
-        aim: Vec2i(10, 10),
+        // aim: Vec2i(10, 10),
+        aim: 0.,
     };
 
     // How many unsimulated frames have we saved up?
@@ -190,15 +192,17 @@ fn draw_game(state: &mut GameState, screen: &mut Screen, font_sheet: &Rc<Texture
     }
 
     // Draw aiming direction
-    // if state.stage == GameStage::Player {
-    //     let (a, b) = (state.mobiles[0].position.0, state.mobiles[0].position.1);
-    //     let aimed_position = Vec2i(a + state.aim.0, b + state.aim.1);
-    //     screen.line(
-    //         state.mobiles[0].position,
-    //         aimed_position,
-    //         Rgba(0, 128, 0, 255),
-    //     );
-    // }
+    if state.stage == GameStage::Player {
+        let (a, b) = (
+            state.mobiles[0].position.0 + state.mobiles[0].collider.rect.w as i32 / 2,
+            state.mobiles[0].position.1 + state.mobiles[0].collider.rect.h as i32 / 2,
+        );
+        let aimed_position = Vec2i(
+            (a as f64 + state.aim.cos() * 30.) as i32,
+            (b as f64 + state.aim.sin() * 30.) as i32,
+        );
+        screen.line(Vec2i(a, b), aimed_position, Rgba(255, 0, 0, 255));
+    }
 
     // Draw HP bar
     // draw_string("HP", screen, font_sheet, Vec2i(20, 520), state.scroll);
@@ -278,10 +282,10 @@ fn update_game(
     tile_sheet: &Rc<Texture>,
 ) {
     if state.frame_count % 60 == 0 {
-        let angle = (state.frame_count % 720) as f64 * 2.0 * std::f64::consts::PI / 720.0;
+        // let angle = (state.frame_count % 720) as f64 * 2.0 * std::f64::consts::PI / 720.0;
         state
             .projs
-            .push(Projectile::new(&state.mobiles[0].collider, angle));
+            .push(Projectile::new(&state.mobiles[0].collider, state.aim));
     }
     // There will be no spawing
     match state.stage {
@@ -329,6 +333,12 @@ fn update_game(
 
             // This block aims the projectile:
             if input.key_held(VirtualKeyCode::A) {
+                state.aim -= 0.1;
+            } else if input.key_held(VirtualKeyCode::D) {
+                state.aim += 0.1;
+            }
+            /*
+            if input.key_held(VirtualKeyCode::A) {
                 state.aim.0 -= 1;
             } else if input.key_held(VirtualKeyCode::D) {
                 state.aim.0 += 1;
@@ -338,6 +348,7 @@ fn update_game(
             } else if input.key_held(VirtualKeyCode::S) {
                 state.aim.1 += 1;
             }
+            */
 
             // mark end of stage
             /*
@@ -389,7 +400,8 @@ fn update_game(
 
     // Update proj position
     for proj in state.projs.iter_mut() {
-        proj.move_pos(proj.get_velocity().0 as i32, proj.get_velocity().1 as i32);
+        // proj.move_pos(proj.get_velocity().0 as i32, proj.get_velocity().1 as i32);
+        proj.update_pos();
     }
 
     if let GameStage::Player | GameStage::AI = state.stage {
