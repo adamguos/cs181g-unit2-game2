@@ -32,6 +32,9 @@ Collision Logics:
 - Player - AI collision causes only restitution
 - Player/AI - Terrain collision casues only retsitution
 - Projectile - Terrain collision either reflects projectile or damage terrain
+    - reflection based on assumption that:
+        - projs moves slow enough to avoid being inside collision volume of terrain
+        - terrians are large enough
 - Player/AI - Projectile collision damage Player/AI
 
 Game control:

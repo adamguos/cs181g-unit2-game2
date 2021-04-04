@@ -1,3 +1,5 @@
+use std::usize;
+
 use crate::entity::Entity;
 use crate::types::Rect;
 
@@ -349,10 +351,24 @@ pub(crate) fn gather_contacts(
                 b.rect.y,
                 b.rect.y + b.rect.h as i32,
             ) {
+                let x: i32 = if b.rect.y < a.rect.y
+                    && (a.rect.y + a.rect.h as i32) < (b.rect.y + b.rect.h as i32)
+                {
+                    1
+                } else {
+                    0
+                };
+                let y: i32 = if b.rect.x < a.rect.x
+                    && (a.rect.x + a.rect.w as i32) < (b.rect.x + b.rect.w as i32)
+                {
+                    1
+                } else {
+                    0
+                };
                 let contact = Contact {
                     a: ColliderID::Projectile(ai),
                     b: ColliderID::Terrain(bi),
-                    mtv: (0, 0),
+                    mtv: (x, y),
                 };
 
                 into.push(contact);
@@ -377,8 +393,9 @@ pub(crate) fn handle_contact(
     // We first modify the hp of the collision objects.
     for contact in contacts.iter() {
         match (contact.a, contact.b) {
-            //currently for PT collisions we are only damaging destructible terrains and then erasing the projectile.
+            // PT collision
             (ColliderID::Projectile(a), ColliderID::Terrain(b)) => {
+                // If destructible terrain, damage and erase
                 if terrains[b].collider.destructible {
                     if terrains[b].collider.hp >= projs[a].hp {
                         terrains[b].collider.hp -= projs[a].hp;
@@ -386,8 +403,16 @@ pub(crate) fn handle_contact(
                         terrains[b].collider.hp = 0;
                     }
                     terrains[b].sprite.animation_sm.input("hit", 0);
+                    projs[a].hp = 0;
+                } else {
+                    // If not-destructbale terrain, reflect
+                    if contact.mtv.0 == 1 {
+                        projs[a].vx *= -1.0;
+                    }
+                    if contact.mtv.1 == 1 {
+                        projs[a].vy *= 1.0;
+                    }
                 }
-                projs[a].hp = 0;
             }
             //PM collisions damages the mobile and erase the projectile.
             (ColliderID::Projectile(a), ColliderID::Mobile(b)) => {
@@ -429,9 +454,7 @@ fn restitute(
                 dynamics[ai].collider.vx = 0.0;
             }
             if contact.mtv.1 != 0 {
-                // set vy = -1 because camera is scrolling up -1 pixels per frame
-                // need this or AI will get to the bottom of the screen
-                dynamics[ai].collider.vy = -1.0;
+                dynamics[ai].collider.vy = 0.0;
             }
         }
     }
