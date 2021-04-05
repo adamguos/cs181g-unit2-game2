@@ -281,7 +281,7 @@ fn update_game(
     sprite_sheet: &Rc<Texture>,
     tile_sheet: &Rc<Texture>,
 ) {
-    if state.frame_count % 60 == 0 {
+    if state.frame_count % 240 == 59 {
         // let angle = (state.frame_count % 720) as f64 * 2.0 * std::f64::consts::PI / 720.0;
         state
             .projs

@@ -7,6 +7,8 @@ const WIDTH: usize = 512;
 const HEIGHT: usize = 480;
 const PITCH: usize = WIDTH * DEPTH;
 
+const PROJ_MAX_BOUNCES: i32 = 6;
+
 // We'll make our Color type an RGBA8888 pixel.
 type Color = [u8; DEPTH];
 
@@ -47,7 +49,7 @@ pub struct Terrain {
     pub rect: Rect,
     pub created_at: usize,
     pub destructible: bool,
-    pub hp: usize,
+    pub hp: i32,
 }
 impl Collider for Terrain {
     fn move_pos(&mut self, dx: i32, dy: i32) {
@@ -62,7 +64,7 @@ impl Collider for Terrain {
 }
 
 impl Terrain {
-    pub fn new(rect: Rect, created_at: usize, destructible: bool, hp: usize) -> Self {
+    pub fn new(rect: Rect, created_at: usize, destructible: bool, hp: i32) -> Self {
         Self {
             rect,
             created_at,
@@ -80,7 +82,7 @@ pub struct Mobile {
     pub rect: Rect,
     pub vx: f32,
     pub vy: f32,
-    pub hp: usize,
+    pub hp: i32,
     pub is_player: bool,
 }
 impl Collider for Mobile {
@@ -95,7 +97,7 @@ impl Collider for Mobile {
     }
 }
 impl Mobile {
-    pub fn enemy(rect: Rect, vx: f32, vy: f32, hp: usize) -> Self {
+    pub fn enemy(rect: Rect, vx: f32, vy: f32, hp: i32) -> Self {
         Self {
             rect,
             vx,
@@ -132,7 +134,7 @@ pub struct Projectile {
     pub rrect: RotatedRect,
     vx: f64,
     vy: f64,
-    hp: usize,
+    hp: i32,
     speed: f64,
 }
 impl Collider for Projectile {
@@ -205,7 +207,7 @@ impl Projectile {
             },
             vx,
             vy,
-            hp: 4,
+            hp: PROJ_MAX_BOUNCES,
             speed,
         }
     }
@@ -588,6 +590,11 @@ pub(crate) fn handle_contact(
                         corners_in += 1;
                     }
                 }
+                if corners_in > 0 {
+                    projs[a].hp -= 1;
+                }
+                println!("{}: {}", a, projs[a].hp);
+                println!("{}: {}, {}", a, projs[a].hp, corners_in);
 
                 // TODO: this isn't correct if more than 1 corner overlaps the Terrain
                 for c in corners.iter() {
