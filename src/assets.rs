@@ -69,6 +69,17 @@ pub fn level_walls(
             (i * TILE_SZ) as i32 / screen_dims.0 * TILE_SZ as i32,
         );
 
+        let mut destructible = true;
+        if i < screen_dims.0 as usize / TILE_SZ {
+            destructible = false;
+        } else if i % (screen_dims.0 as usize / TILE_SZ) == 0 {
+            destructible = false;
+        } else if i % (screen_dims.0 as usize / TILE_SZ) == screen_dims.0 as usize / TILE_SZ - 1 {
+            destructible = false;
+        } else if i / (screen_dims.0 as usize / TILE_SZ) == (screen_dims.1 as usize / TILE_SZ - 1) {
+            destructible = false;
+        }
+
         walls.push(Entity::new(
             Sprite::new(
                 tile_sheet,
@@ -88,7 +99,7 @@ pub fn level_walls(
                     h: TILE_SZ as u16,
                 },
                 frame_count,
-                false,
+                destructible,
                 1,
             ),
         ));

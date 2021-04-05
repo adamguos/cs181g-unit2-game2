@@ -151,43 +151,6 @@ impl Collider for Projectile {
     }
 }
 impl Projectile {
-    /*
-    pub(crate) fn new(from: &Mobile) -> Self {
-        Self {
-            rect: Rect {
-                x: from.rect.x + from.rect.w as i32 / 2,
-                y: from.rect.y - 10,
-                w: 5,
-                h: 5,
-            },
-            vx: 0.0,
-            vy: -10.0,
-            hp: 4,
-            rotation: 0,
-        }
-    }
-    */
-
-    /*
-    pub(crate) fn new_aimed(from: &Mobile, aiming: Vec2i) -> Self {
-        let x = aiming.0 as f64;
-        let y = aiming.1 as f64;
-        // Normalise to velocity = 10
-        let coef = ((x * x + y * y) / 100.0).sqrt();
-        Self {
-            rect: Rect {
-                x: from.rect.x + from.rect.w as i32 / 2,
-                y: from.rect.y - 10,
-                w: 5,
-                h: 5,
-            },
-            vx: x * coef,
-            vy: y * coef,
-            hp: 4,
-        }
-    }
-    */
-
     pub fn new(from: &Mobile, rotation: f64) -> Self {
         let speed = 2.0;
 
@@ -586,6 +549,9 @@ pub(crate) fn handle_contact(
                 }
                 if corners_in == 1 {
                     projs[a].hp -= 1;
+                    if terrains[b].collider.destructible {
+                        terrains[b].collider.hp -= 1;
+                    }
                 }
 
                 // TODO: this isn't correct if more than 1 corner overlaps the Terrain
