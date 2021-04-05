@@ -72,6 +72,22 @@ const ROCK_SZ: usize = 16;
 // player shoots every PROJ_DT frames
 const PROJ_DT: usize = 6;
 
+fn init(tile_sheet: &Rc<Texture>, sprite_sheet: &Rc<Texture>) -> GameState {
+    // Initial game state
+    GameState {
+        terrains: level_walls(&tile_sheet, 0, Vec2i(WIDTH as i32, HEIGHT as i32)),
+        mobiles: vec![player_entity(&sprite_sheet, 0)],
+        projs: vec![],
+        walls: vec![],
+        stage: GameStage::Player,
+        frame_count: 0,
+        scroll: Vec2i(0, 0),
+        score: 0,
+        loaded: false,
+        aim: 0.,
+    }
+}
+
 fn main() {
     let event_loop = EventLoop::new();
     let mut input = WinitInputHelper::new();
@@ -95,32 +111,7 @@ fn main() {
     let font_sheet = Rc::new(Texture::with_file(Path::new("content/monospace_font.png")));
     let tile_sheet = Rc::new(Texture::with_file(Path::new("content/mario_tileset.png")));
 
-    // Player sprite
-    // let player_sprite = assets::player_anim(&sprite_sheet, 0);
-
-    // Player entity
-    // let player = Entity {
-    //     collider: Mobile::player(500, 180),
-    //     position: Vec2i(180, 500),
-    //     sprite: player_sprite,
-    // };
-
-    // Enemy entity
-    // let enemy = assets::enemy_entity(&sprite_sheet, 0, Vec2i(100, 100));
-
-    // Initial game state
-    let mut state = GameState {
-        terrains: level_walls(&tile_sheet, 0, Vec2i(WIDTH as i32, HEIGHT as i32)),
-        mobiles: vec![player_entity(&sprite_sheet, 0)],
-        projs: vec![],
-        walls: vec![],
-        stage: GameStage::Player,
-        frame_count: 0,
-        scroll: Vec2i(0, 0),
-        score: 0,
-        loaded: false,
-        aim: 0.,
-    };
+    let mut state = init(&tile_sheet, &sprite_sheet);
 
     // How many unsimulated frames have we saved up?
     let mut available_time = 0.0;
@@ -144,8 +135,7 @@ fn main() {
         // Game over event
         if let GameStage::GameOver(death_frame) = state.stage {
             if state.frame_count - death_frame >= 150 {
-                *control_flow = ControlFlow::Poll;
-                //main();
+                state = init(&tile_sheet, &sprite_sheet);
             }
         }
         // Handle input events
