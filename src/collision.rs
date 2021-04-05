@@ -1,3 +1,5 @@
+use std::usize;
+
 use crate::entity::Entity;
 use crate::types::*;
 
@@ -97,22 +99,22 @@ impl Collider for Mobile {
     }
 }
 impl Mobile {
-    pub fn enemy(rect: Rect, vx: f32, vy: f32, hp: i32) -> Self {
+    pub fn enemy(x: i32, y: i32, hp: i32) -> Self {
         Self {
-            rect,
-            vx,
-            vy,
+            rect: Rect { x, y, w: 24, h: 24 },
+            vx: 0.0,
+            vy: 0.0,
             hp,
             is_player: false,
         }
     }
 
-    pub fn player(x: i32, y: i32) -> Self {
+    pub fn player(x: i32, y: i32, hp: i32) -> Self {
         Self {
             rect: Rect { x, y, w: 24, h: 24 },
             vx: 0.0,
             vy: 0.0,
-            hp: 100,
+            hp,
             is_player: true,
         }
     }
@@ -189,20 +191,20 @@ impl Projectile {
     pub fn new(from: &Mobile, rotation: f64) -> Self {
         let speed = 3.0;
 
-        // Spawn projectile a distance of 10 away from Mobile, towards rotation
-        let x = (from.rect.x + from.rect.w as i32 / 2) as f64 + rotation.cos() * 10.0;
-        let y = (from.rect.y + from.rect.h as i32 / 2) as f64 + rotation.sin() * 10.0;
+        // Spawn projectile a distance of 20 away from Mobile, towards rotation
+        let x = (from.rect.x + from.rect.w as i32 / 2) as f64 + rotation.cos() * 30.0;
+        let y = (from.rect.y + from.rect.h as i32 / 2) as f64 + rotation.sin() * 30.0;
 
         // Projectile starts with velocity towards angle, with magnitude 3
-        let vx = rotation.cos() * speed;
-        let vy = rotation.sin() * speed;
+        let vx = rotation.cos() * speed * 1.2;
+        let vy = rotation.sin() * speed * 1.2;
 
         Self {
             rrect: RotatedRect {
                 x,
                 y,
-                w: 20,
-                h: 10,
+                w: 14,
+                h: 7,
                 rotation,
             },
             vx,
@@ -412,21 +414,16 @@ pub(crate) fn gather_contacts(
         }
     }
     // collide projs against mobiles
-    /*
     for (ai, a) in projs.iter().enumerate() {
         for (bi, b) in mobiles.iter().enumerate() {
             let b = &b.collider;
-            if !separating_axis(
-                a.rect.x,
-                a.rect.x + a.rect.w as i32,
-                b.rect.x,
-                b.rect.x + b.rect.w as i32,
-            ) && !separating_axis(
-                a.rect.y,
-                a.rect.y + a.rect.h as i32,
-                b.rect.y,
-                b.rect.y + b.rect.h as i32,
-            ) {
+            let mut collide = false;
+            for point in a.rrect.corners().iter() {
+                if b.rect.contains_f(point) {
+                    collide = true;
+                }
+            }
+            if collide {
                 let contact = Contact {
                     a: ColliderID::Projectile(ai),
                     b: ColliderID::Mobile(bi),
@@ -437,7 +434,6 @@ pub(crate) fn gather_contacts(
             }
         }
     }
-    */
     // collide projs against terrains
     for (ai, a) in projs.iter().enumerate() {
         for (bi, b) in terrains.iter().enumerate() {
@@ -593,13 +589,15 @@ pub(crate) fn handle_contact(
                 if corners_in > 0 {
                     projs[a].hp -= 1;
                 }
-                println!("{}: {}", a, projs[a].hp);
-                println!("{}: {}, {}", a, projs[a].hp, corners_in);
+                //println!("{}: {}", a, projs[a].hp);
+                //println!("{}: {}, {}", a, projs[a].hp, corners_in);
 
                 // TODO: this isn't correct if more than 1 corner overlaps the Terrain
                 for c in corners.iter() {
                     if terrains[b].collider.rect.contains_f(c) {
-                        if c.0 == x_max.unwrap().0 || c.0 == x_min.unwrap().0 {
+                        if (c.0 - x_max.unwrap().0).abs() < 0.0
+                            || (c.0 - x_min.unwrap().0).abs() < 0.0
+                        {
                             let old_rot = projs[a].rrect.rotation;
                             projs[a].set_rotation(std::f64::consts::PI - old_rot);
                         } else {
@@ -661,7 +659,7 @@ fn restitute(
             println!("{:?}", dynamics[ai].position);
             */
 
-            println!("restitute {:?}", contact.mtv);
+            //println!("restitute {:?}", contact.mtv);
             dynamics[ai].move_pos(contact.mtv.0, contact.mtv.1);
 
             if contact.mtv.0 != 0 {

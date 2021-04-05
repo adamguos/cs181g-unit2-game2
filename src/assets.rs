@@ -185,7 +185,47 @@ pub fn player_entity(sprite_sheet: &Rc<Texture>, frame_count: usize) -> Entity<M
 
     let sprite = Sprite::new(&sprite_sheet, anim_sm, pos);
 
-    Entity::new(sprite, pos, Mobile::player(pos.0, pos.1))
+    Entity::new(sprite, pos, Mobile::player(pos.0, pos.1, 10))
+}
+
+pub fn enemy_entity(sprite_sheet: &Rc<Texture>, frame_count: usize, pos: Vec2i) -> Entity<Mobile> {
+    let mut anims: Vec<Animation> = (0..4)
+        .map(|x| {
+            Animation::new(
+                get_sprite_rects(x, "orange").unwrap(),
+                vec![60],
+                frame_count,
+                true,
+            )
+        })
+        .collect();
+    let anims2: Vec<Animation> = (4..8)
+        .map(|x| {
+            Animation::new(
+                get_sprite_rects(x, "orange").unwrap(),
+                vec![2, 2],
+                frame_count,
+                true,
+            )
+        })
+        .collect();
+    anims.extend(anims2);
+
+    #[rustfmt::skip]
+    let trans = vec![
+        (0, 1, "right".to_string()), (0, 2, "down".to_string()), (0, 3, "left".to_string()),
+        (1, 0, "up".to_string()), (1, 2, "down".to_string()), (0, 3, "left".to_string()),
+        (2, 0, "up".to_string()), (2, 1, "right".to_string()), (2, 3, "left".to_string()),
+        (3, 0, "up".to_string()), (3, 1, "right".to_string()), (3, 2, "down".to_string()),
+        (0, 4, "move".to_string()), (1, 5, "move".to_string()), (2, 6, "move".to_string()), (3, 7, "move".to_string()), 
+        (4, 0, "stop".to_string()), (5, 1, "stop".to_string()), (6, 2, "stop".to_string()), (7, 3, "stop".to_string()), 
+    ];
+
+    let anim_sm = AnimationSM::new(anims, trans, 0);
+
+    let sprite = Sprite::new(&sprite_sheet, anim_sm, pos);
+
+    Entity::new(sprite, pos, Mobile::enemy(pos.0, pos.1, 1))
 }
 
 /// 0 = facing up, 1 = facing right, 2 = facing down, 3 = facing left

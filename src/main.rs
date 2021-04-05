@@ -1,9 +1,9 @@
 use pixels::{Pixels, SurfaceTexture};
 use rand::Rng;
-use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
+use std::{collections::HashMap, usize};
 use winit::dpi::LogicalSize;
 use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -46,7 +46,7 @@ struct GameState {
     frame_count: usize,
     scroll: Vec2i,
     score: usize,
-    // aim: Vec2i,
+    loaded: bool,
     aim: f64,
 }
 
@@ -118,7 +118,7 @@ fn main() {
         frame_count: 0,
         scroll: Vec2i(0, 0),
         score: 0,
-        // aim: Vec2i(10, 10),
+        loaded: false,
         aim: 0.,
     };
 
@@ -201,7 +201,9 @@ fn draw_game(state: &mut GameState, screen: &mut Screen, font_sheet: &Rc<Texture
             (a as f64 + state.aim.cos() * 30.) as i32,
             (b as f64 + state.aim.sin() * 30.) as i32,
         );
-        screen.line(Vec2i(a, b), aimed_position, Rgba(255, 0, 0, 255));
+        screen.line(Vec2i(a, b), aimed_position, Rgba(0, 255, 0, 255));
+        screen.line(Vec2i(a - 1, b), aimed_position, Rgba(0, 255, 0, 255));
+        screen.line(Vec2i(a + 1, b), aimed_position, Rgba(0, 255, 0, 255));
     }
 
     // Draw HP bar
@@ -281,50 +283,61 @@ fn update_game(
     sprite_sheet: &Rc<Texture>,
     tile_sheet: &Rc<Texture>,
 ) {
-    if state.frame_count % 240 == 59 {
+    // All time-based updating goes here:
+    if state.frame_count % 120 == 59 {
         // let angle = (state.frame_count % 720) as f64 * 2.0 * std::f64::consts::PI / 720.0;
-        state
-            .projs
-            .push(Projectile::new(&state.mobiles[0].collider, state.aim));
+        state.loaded = true;
     }
-    // There will be no spawing
+    if state.frame_count % 240 == 0 || state.mobiles.len() == 1 {
+        let mut rng = rand::thread_rng();
+        let pos_x = rng.gen_range(0..WIDTH) as i32;
+        let pos_y = rng.gen_range(0..HEIGHT) as i32;
+
+        state.mobiles.push(enemy_entity(
+            sprite_sheet,
+            state.frame_count,
+            Vec2i(pos_x, pos_y),
+        ));
+    }
+
     match state.stage {
         // Update player position: Player control goes here
+        // Occupied keys: A, D, Up, Down, Left, Right, Space
         GameStage::Player => {
             // This block modifies player position:
             // Nested if statements are used to ensure animation transitions are correct
             if input.key_held(VirtualKeyCode::Right) {
-                if state.mobiles[0].collider.vx != 1.0 {
+                if (state.mobiles[0].collider.vx - 1.0).abs() > 0.0 {
                     state.mobiles[0].anim_trans("stop", state.frame_count);
                     state.mobiles[0].anim_trans("right", state.frame_count);
                     state.mobiles[0].anim_trans("move", state.frame_count);
-                    state.mobiles[0].collider.vx = 1.0;
+                    state.mobiles[0].collider.vx = 3.0;
                     state.mobiles[0].collider.vy = 0.0;
                 }
             } else if input.key_held(VirtualKeyCode::Left) {
-                if state.mobiles[0].collider.vx != -1.0 {
+                if (state.mobiles[0].collider.vx - -1.0).abs() > 0.0 {
                     state.mobiles[0].anim_trans("stop", state.frame_count);
                     state.mobiles[0].anim_trans("left", state.frame_count);
                     state.mobiles[0].anim_trans("move", state.frame_count);
-                    state.mobiles[0].collider.vx = -1.0;
+                    state.mobiles[0].collider.vx = -3.0;
                     state.mobiles[0].collider.vy = 0.0;
                 }
             } else if input.key_held(VirtualKeyCode::Up) {
-                if state.mobiles[0].collider.vy != -1.0 {
+                if (state.mobiles[0].collider.vy - -1.0).abs() > 0.0 {
                     state.mobiles[0].anim_trans("stop", state.frame_count);
                     state.mobiles[0].anim_trans("up", state.frame_count);
                     state.mobiles[0].anim_trans("move", state.frame_count);
                 }
                 state.mobiles[0].collider.vx = 0.0;
-                state.mobiles[0].collider.vy = -1.0;
+                state.mobiles[0].collider.vy = -3.0;
             } else if input.key_held(VirtualKeyCode::Down) {
-                if state.mobiles[0].collider.vy != 1.0 {
+                if (state.mobiles[0].collider.vy - 1.0).abs() > 0.0 {
                     state.mobiles[0].anim_trans("stop", state.frame_count);
                     state.mobiles[0].anim_trans("down", state.frame_count);
                     state.mobiles[0].anim_trans("move", state.frame_count);
                 }
                 state.mobiles[0].collider.vx = 0.0;
-                state.mobiles[0].collider.vy = 1.0;
+                state.mobiles[0].collider.vy = 3.0;
             } else {
                 state.mobiles[0].anim_trans("stop", state.frame_count);
                 state.mobiles[0].collider.vx = 0.0;
@@ -337,40 +350,24 @@ fn update_game(
             } else if input.key_held(VirtualKeyCode::D) {
                 state.aim += 0.1;
             }
-            /*
-            if input.key_held(VirtualKeyCode::A) {
-                state.aim.0 -= 1;
-            } else if input.key_held(VirtualKeyCode::D) {
-                state.aim.0 += 1;
-            }
-            if input.key_held(VirtualKeyCode::W) {
-                state.aim.1 -= 1;
-            } else if input.key_held(VirtualKeyCode::S) {
-                state.aim.1 += 1;
-            }
-            */
 
-            // mark end of stage
-            /*
-            if input.key_held(VirtualKeyCode::Space) {
-                let new_proj = Projectile::new(&state.mobiles[0].collider, state.aim);
-                state.projs.push(new_proj);
-                state.aim = Vec2i(0, 0);
-                state.stage = GameStage::AI;
+            // This block shoots
+            if input.key_pressed(VirtualKeyCode::Space) && state.loaded {
+                state
+                    .projs
+                    .push(Projectile::new(&state.mobiles[0].collider, state.aim));
+                state.loaded = false;
             }
-            */
         }
-        GameStage::AI => {
-            todo!(); //AI moving and shooting
-            state.stage = GameStage::Player;
-        }
-        GameStage::GameOver(_) => {
-            todo!()
-        }
+        GameStage::AI => {}
+        GameStage::GameOver(_) => {}
     }
 
     // Update enemy AI movements
-    update_enemies(state);
+    let hard_mode = true;
+    if hard_mode {
+        update_enemies(state);
+    }
 
     // Detect collisions: Generate contacts
     let mut contacts: Vec<Contact> = vec![];
@@ -405,8 +402,8 @@ fn update_game(
     }
 
     if let GameStage::Player | GameStage::AI = state.stage {
-        // Set GameOver stage if player is not alive
-        if !player_is_alive {
+        // Set GameOver stage if player is not alive or if there are more than 15 enemy
+        if !player_is_alive || state.mobiles.len() >= 10 {
             state.mobiles[0]
                 .sprite
                 .animation_sm
@@ -446,20 +443,20 @@ fn update_enemies(state: &mut GameState) {
         } else if dx > max_vx {
             dx = max_vx;
         }
-        enemy.collider.vx += dx;
+        enemy.collider.vx -= dx * 0.4;
 
-        // Accelerate y upward if enemy is below player
+        // Accelerate y downward if enemy is below player
         let dy = player_pos.1 - enemy.position.1;
         let max_vy = 5.0;
         if dy < 0 {
             // enemy.collider.vy -= 0.03;
-            enemy.collider.vy = (enemy.collider.vy - 0.03).max(-max_vy);
+            enemy.collider.vy = (enemy.collider.vy + 0.03).min(max_vy);
         }
 
-        // Accelerate y downward if enemy is above player
+        // Accelerate y upward if enemy is above player
         if dy > 0 {
             // enemy.collider.vy += 0.03;
-            enemy.collider.vy = (enemy.collider.vy + 0.03).min(max_vy);
+            enemy.collider.vy = (enemy.collider.vy - 0.03).max(-max_vy);
         }
 
         // Accelerate y downward if enemy is less than 50 away from top of screen
