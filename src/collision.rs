@@ -189,15 +189,15 @@ impl Projectile {
     */
 
     pub fn new(from: &Mobile, rotation: f64) -> Self {
-        let speed = 3.0;
+        let speed = 2.0;
 
         // Spawn projectile a distance of 20 away from Mobile, towards rotation
         let x = (from.rect.x + from.rect.w as i32 / 2) as f64 + rotation.cos() * 30.0;
         let y = (from.rect.y + from.rect.h as i32 / 2) as f64 + rotation.sin() * 30.0;
 
         // Projectile starts with velocity towards angle, with magnitude 3
-        let vx = rotation.cos() * speed * 1.2;
-        let vy = rotation.sin() * speed * 1.2;
+        let vx = rotation.cos() * speed;
+        let vy = rotation.sin() * speed;
 
         Self {
             rrect: RotatedRect {
@@ -540,64 +540,58 @@ pub(crate) fn handle_contact(
         match (contact.a, contact.b) {
             // PT collision
             (ColliderID::Projectile(a), ColliderID::Terrain(b)) => {
-                /*
-                // If destructible terrain, damage and erase
-                if terrains[b].collider.destructible {
-                    if terrains[b].collider.hp >= projs[a].hp {
-                        terrains[b].collider.hp -= projs[a].hp;
-                    } else {
-                        terrains[b].collider.hp = 0;
-                    }
-                    terrains[b].sprite.animation_sm.input("hit", 0);
-                    projs[a].hp = 0;
-                } else {
-                    // If not-destructbale terrain, reflect
-                    if contact.mtv.0 == 1 {
-                        projs[a].vx *= -1.0;
-                    }
-                    if contact.mtv.1 == 1 {
-                        projs[a].vy *= 1.0;
-                    }
-                }
-                */
-
                 let corners = projs[a].rrect.corners();
 
                 let x_max = corners
                     .iter()
                     .cloned()
-                    .max_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"));
+                    .max_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"))
+                    .unwrap()
+                    .0;
                 let x_min = corners
                     .iter()
                     .cloned()
-                    .min_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"));
+                    .min_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"))
+                    .unwrap()
+                    .0;
                 let y_max = corners
                     .iter()
                     .cloned()
-                    .max_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"));
+                    .max_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"))
+                    .unwrap()
+                    .1;
                 let y_min = corners
                     .iter()
                     .cloned()
-                    .min_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"));
+                    .min_by(|a, b| a.0.partial_cmp(&b.0).expect("Tried to compare a NaN"))
+                    .unwrap()
+                    .1;
 
                 let mut corners_in = 0;
                 for (i, c) in corners.iter().enumerate() {
                     if terrains[b].collider.rect.contains_f(c) {
                         corners_in += 1;
+                        /*
+                        if c.0 == x_max {
+                            println!("x_max");
+                        } else if c.0 == x_min {
+                            println!("x_min");
+                        } else if c.1 == y_max {
+                            println!("y_max");
+                        } else if c.1 == y_min {
+                            println!("y_min");
+                        }
+                        */
                     }
                 }
-                if corners_in > 0 {
+                if corners_in == 1 {
                     projs[a].hp -= 1;
                 }
-                //println!("{}: {}", a, projs[a].hp);
-                //println!("{}: {}, {}", a, projs[a].hp, corners_in);
 
                 // TODO: this isn't correct if more than 1 corner overlaps the Terrain
                 for c in corners.iter() {
                     if terrains[b].collider.rect.contains_f(c) {
-                        if (c.0 - x_max.unwrap().0).abs() < 0.0
-                            || (c.0 - x_min.unwrap().0).abs() < 0.0
-                        {
+                        if (c.0 - x_max).abs() < 0.0001 || (c.0 - x_min).abs() < 0.0001 {
                             let old_rot = projs[a].rrect.rotation;
                             projs[a].set_rotation(std::f64::consts::PI - old_rot);
                         } else {
