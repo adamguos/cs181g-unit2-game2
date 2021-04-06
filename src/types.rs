@@ -27,7 +27,7 @@ pub struct Vec2f(pub f64, pub f64);
 pub struct Rgba(pub u8, pub u8, pub u8, pub u8);
 
 impl Rect {
-    pub fn contains(&self, point: &Vec2i) -> bool {
+    pub fn _contains(&self, point: &Vec2i) -> bool {
         point.0 >= self.x
             && point.0 <= self.x + self.w as i32
             && point.1 >= self.y
@@ -39,10 +39,6 @@ impl Rect {
             && point.0 <= self.x as f64 + self.w as f64
             && point.1 >= self.y as f64
             && point.1 <= self.y as f64 + self.h as f64
-    }
-
-    pub fn further_in(&self, point1: &Vec2f, point2: &Vec2f, center: &Vec2f) -> Vec2f {
-        todo!();
     }
 }
 

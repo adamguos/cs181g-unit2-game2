@@ -424,6 +424,12 @@ pub(crate) fn gather_contacts(
 }
 
 fn check_rotated_collision(rrect_a: &RotatedRect, rrect_b: &RotatedRect) -> bool {
+    // Separating axis theorem: like AABB but not AA
+    //      Get axes (two for each rectangle)
+    //      Project corners onto each axis (two corners, opposite, for each rectangle)
+    //      Calculate a scalar out of each projected corner using dot product
+    //      If the corners overlap, then they overlap in that axis
+    //      If all 4 axes overlap, then collision
     let corners_a = rrect_a.corners();
     let corners_b = rrect_b.corners();
 
@@ -503,6 +509,10 @@ pub(crate) fn handle_contact(
         match (contact.a, contact.b) {
             // PT collision
             (ColliderID::Projectile(a), ColliderID::Terrain(b)) => {
+                // How to reflect projectiles?
+                // We check which corner is touching the terrain
+                // If bottom or top corner, then flip across horizontal axis
+                // If left or right corner, then flip across vertical axis
                 let corners = projs[a].rrect.corners();
 
                 let x_max = corners
@@ -598,28 +608,6 @@ fn restitute(
 
     for contact in contacts.iter() {
         if let (ColliderID::Mobile(ai), ColliderID::Terrain(_)) = (contact.a, contact.b) {
-            /*
-            let vx_dir = if dynamics[ai].collider.vx == 0.0 {
-                0
-            } else {
-                dynamics[ai].collider.vx.signum() as i32
-            };
-            let vy_dir = if dynamics[ai].collider.vy == 0.0 {
-                0
-            } else {
-                dynamics[ai].collider.vy.signum() as i32
-            };
-
-            println!("restitute {:?}, {}, {}", contact.mtv, vx_dir, vy_dir);
-
-            dynamics[ai].move_pos(
-                -contact.mtv.0 * vx_dir as i32 * 4,
-                -contact.mtv.1 * vy_dir as i32 * 4,
-            );
-            println!("{:?}", dynamics[ai].position);
-            */
-
-            //println!("restitute {:?}", contact.mtv);
             dynamics[ai].move_pos(contact.mtv.0, contact.mtv.1);
 
             if contact.mtv.0 != 0 {
